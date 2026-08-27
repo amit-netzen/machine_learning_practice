@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FWI Predictor — Fire Weather Index</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --forest-950:#12201A;
+    --forest-800:#20342A;
+    --forest-700:#2B4436;
+    --ember-500:#E2622E;
+    --ember-300:#F0955C;
+    --ash-100:#EFE9DC;
+    --ash-50:#F7F3EA;
+    --char-700:#38352E;
+    --smoke-400:#8FA192;
+    --danger-low:#5F9E6B;
+    --danger-mod:#D6B23A;
+    --danger-high:#E2622E;
+    --danger-extreme:#B33A2A;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--forest-950);
+    font-family:'IBM Plex Mono', monospace;
+    color:var(--ash-100);
+    min-height:100vh;
+  }
+
+  .wrap{
+    display:grid;
+    grid-template-columns: 1.05fr 1.3fr;
+    min-height:100vh;
+  }
+
+  /* ---------- LEFT: signature panel ---------- */
+  .hero{
+    background:
+      radial-gradient(circle at 20% 15%, rgba(226,98,46,0.10), transparent 45%),
+      linear-gradient(180deg, var(--forest-950) 0%, var(--forest-800) 100%);
+    padding: 56px 48px;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    position:relative;
+    overflow:hidden;
+    border-right: 1px solid var(--forest-700);
+  }
+
+  .eyebrow{
+    font-size:12px;
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+    color:var(--ember-300);
+    margin-bottom:18px;
+  }
+
+  h1.title{
+    font-family:'Zilla Slab', serif;
+    font-weight:700;
+    font-size:56px;
+    line-height:1.02;
+    margin:0 0 18px 0;
+    color:var(--ash-50);
+  }
+  h1.title span{ color:var(--ember-500); }
+
+  .lede{
+    font-size:14.5px;
+    line-height:1.65;
+    color:var(--smoke-400);
+    max-width:38ch;
+    margin-bottom:44px;
+  }
+
+  /* Danger dial */
+  .dial-block{ margin-top:auto; }
+  .dial-caption{
+    font-size:11px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--smoke-400);
+    margin-bottom:10px;
+  }
+  .dial{
+    width:100%;
+    max-width:320px;
+    height:auto;
+  }
+  .dial-legend{
+    display:flex;
+    gap:18px;
+    margin-top:14px;
+    flex-wrap:wrap;
+  }
+  .dial-legend span{
+    font-size:11px;
+    color:var(--smoke-400);
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+
+  /* Embers */
+  .embers{ position:absolute; inset:0; pointer-events:none; }
+  .ember{
+    position:absolute;
+    bottom:-10px;
+    width:4px;
+    height:4px;
+    border-radius:50%;
+    background:var(--ember-500);
+    opacity:0.55;
+    animation: rise linear infinite;
+  }
+  @keyframes rise{
+    0%{ transform:translateY(0) translateX(0); opacity:0.6;}
+    100%{ transform:translateY(-620px) translateX(18px); opacity:0;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .ember{ animation:none; display:none; }
+  }
+
+  /* ---------- RIGHT: form panel ---------- */
+  .panel{
+    background:var(--ash-100);
+    color:var(--char-700);
+    padding:56px 64px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+  }
+
+  .panel-head{ margin-bottom:30px; }
+  .panel-head h2{
+    font-family:'Zilla Slab', serif;
+    font-size:26px;
+    margin:0 0 6px 0;
+    font-weight:600;
+  }
+  .panel-head p{
+    font-size:13px;
+    color:#6B675C;
+    margin:0;
+    line-height:1.5;
+  }
+
+  form{ display:flex; flex-direction:column; gap:0; }
+
+  .grid{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px 20px;
+  }
+
+  .field{ display:flex; flex-direction:column; gap:6px; }
+  .field.full{ grid-column: 1 / -1; }
+
+  label{
+    font-size:11px;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    color:#6B675C;
+    display:flex;
+    justify-content:space-between;
+  }
+  label .unit{ color:#A39D8C; text-transform:none; letter-spacing:0; font-size:10.5px; }
+
+  input[type="number"], select{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:14.5px;
+    padding:11px 12px;
+    border:1.5px solid #D8D0BC;
+    border-radius:3px;
+    background:var(--ash-50);
+    color:var(--char-700);
+    outline:none;
+    transition: border-color .15s ease, background .15s ease;
+    width:100%;
+  }
+  input[type="number"]::placeholder{ color:#B4AC98; }
+  input[type="number"]:focus, select:focus{
+    border-color:var(--ember-500);
+    background:#FFFFFF;
+    box-shadow: 0 0 0 3px rgba(226,98,46,0.15);
+  }
+  input:focus-visible, select:focus-visible, button:focus-visible{
+    outline: 2px solid var(--ember-500);
+    outline-offset: 2px;
+  }
+
+  .range-hint{ font-size:10.5px; color:#A39D8C; margin-top:2px; }
+
+  select{ appearance:none; -webkit-appearance:none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%23838066'/></svg>");
+    background-repeat:no-repeat;
+    background-position: right 14px center;
+    padding-right: 34px;
+  }
+
+  .divider{
+    border:none;
+    border-top:1px solid #DCD5C2;
+    margin: 26px 0 22px 0;
+  }
+
+  button.submit{
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:600;
+    font-size:13.5px;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+    background:var(--ember-500);
+    color:var(--ash-50);
+    border:none;
+    border-radius:3px;
+    padding:15px 20px;
+    cursor:pointer;
+    transition: background .15s ease, transform .1s ease;
+  }
+  button.submit:hover{ background:#CB5326; }
+  button.submit:active{ transform: translateY(1px); }
+
+  .result{
+    margin-top:22px;
+    padding:18px 20px;
+    background:var(--forest-950);
+    color:var(--ash-50);
+    border-radius:4px;
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+  }
+  .result .label{ font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--smoke-400); }
+  .result .value{ font-family:'Zilla Slab', serif; font-size:28px; color:var(--ember-300); font-weight:700; }
+
+  @media (max-width: 900px){
+    .wrap{ grid-template-columns: 1fr; }
+    .hero{ padding:40px 28px; }
+    .panel{ padding:40px 28px; }
+    h1.title{ font-size:38px; }
+    .grid{ grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- LEFT: signature dial + hero -->
+  <section class="hero">
+    <div class="embers" aria-hidden="true">
+      <span class="ember" style="left:12%; animation-duration:7s; animation-delay:0s;"></span>
+      <span class="ember" style="left:28%; animation-duration:9s; animation-delay:1.5s;"></span>
+      <span class="ember" style="left:45%; animation-duration:6.5s; animation-delay:3s;"></span>
+      <span class="ember" style="left:63%; animation-duration:8s; animation-delay:0.8s;"></span>
+      <span class="ember" style="left:78%; animation-duration:7.5s; animation-delay:2.4s;"></span>
+      <span class="ember" style="left:88%; animation-duration:10s; animation-delay:4s;"></span>
+    </div>
+
+    <div>
+      <div class="eyebrow">Ridge Regression · Algerian Forest Fires Dataset</div>
+      <h1 class="title">Fire Weather<br><span>Index</span> Predictor</h1>
+      <p class="lede">Enter today's field readings — temperature, humidity, wind, and fuel moisture codes — and the model estimates the Fire Weather Index for the selected region.</p>
+    </div>
+
+    <div class="dial-block">
+      <div class="dial-caption">FWI Danger Scale (reference)</div>
+      <svg class="dial" viewBox="0 0 320 170" xmlns="http://www.w3.org/2000/svg">
+        <path d="M 20 150 A 140 140 0 0 1 90 32" fill="none" stroke="#5F9E6B" stroke-width="14" stroke-linecap="round"/>
+        <path d="M 96 28 A 140 140 0 0 1 160 12" fill="none" stroke="#D6B23A" stroke-width="14" stroke-linecap="round"/>
+        <path d="M 166 12 A 140 140 0 0 1 230 28" fill="none" stroke="#E2622E" stroke-width="14" stroke-linecap="round"/>
+        <path d="M 236 32 A 140 140 0 0 1 300 150" fill="none" stroke="#B33A2A" stroke-width="14" stroke-linecap="round"/>
+        <line x1="160" y1="150" x2="215" y2="55" stroke="#F7F3EA" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="160" cy="150" r="6" fill="#F7F3EA"/>
+      </svg>
+      <div class="dial-legend">
+        <span><i class="dot" style="background:var(--danger-low)"></i>Low</span>
+        <span><i class="dot" style="background:var(--danger-mod)"></i>Moderate</span>
+        <span><i class="dot" style="background:var(--danger-high)"></i>High</span>
+        <span><i class="dot" style="background:var(--danger-extreme)"></i>Extreme</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT: form -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Enter observation data</h2>
+      <p>All fields are required. Values reflect typical ranges from the Bejaia and Sidi-Bel Abbès weather stations.</p>
+    </div>
+
+    <form action="/predictdata" method="POST">
+
+      <div class="grid">
+
+        <div class="field">
+          <label for="Temperature">Temperature <span class="unit">°C</span></label>
+          <input type="number" step="any" name="Temperature" id="Temperature" placeholder="e.g. 32" min="0" max="55" required>
+          <span class="range-hint">Typical range: 22–42°C</span>
+        </div>
+
+        <div class="field">
+          <label for="RH">Relative Humidity <span class="unit">%</span></label>
+          <input type="number" step="any" name="RH" id="RH" placeholder="e.g. 55" min="0" max="100" required>
+          <span class="range-hint">Typical range: 21–90%</span>
+        </div>
+
+        <div class="field">
+          <label for="Ws">Wind Speed <span class="unit">km/h</span></label>
+          <input type="number" step="any" name="Ws" id="Ws" placeholder="e.g. 15" min="0" max="100" required>
+          <span class="range-hint">Typical range: 6–29 km/h</span>
+        </div>
+
+        <div class="field">
+          <label for="Rain">Rain <span class="unit">mm</span></label>
+          <input type="number" step="any" name="Rain" id="Rain" placeholder="e.g. 0.0" min="0" max="200" required>
+          <span class="range-hint">Typical range: 0–16.8 mm</span>
+        </div>
+
+        <div class="field">
+          <label for="FFMC">FFMC <span class="unit">code</span></label>
+          <input type="number" step="any" name="FFMC" id="FFMC" placeholder="e.g. 84.5" min="0" max="100" required>
+          <span class="range-hint">Fine Fuel Moisture Code · 28–92</span>
+        </div>
+
+        <div class="field">
+          <label for="DMC">DMC <span class="unit">code</span></label>
+          <input type="number" step="any" name="DMC" id="DMC" placeholder="e.g. 12.3" min="0" max="300" required>
+          <span class="range-hint">Duff Moisture Code · 1–65</span>
+        </div>
+
+        <div class="field">
+          <label for="ISI">ISI <span class="unit">index</span></label>
+          <input type="number" step="any" name="ISI" id="ISI" placeholder="e.g. 6.1" min="0" max="60" required>
+          <span class="range-hint">Initial Spread Index · 0–19</span>
+        </div>
+
+        <div class="field">
+          <label for="Classes">Classes</label>
+          <select name="Classes" id="Classes" required>
+            <option value="" disabled selected>Select</option>
+            <option value="1">Fire</option>
+            <option value="0">Not Fire</option>
+          </select>
+          <span class="range-hint">Observed fire occurrence label</span>
+        </div>
+
+        <div class="field full">
+          <label for="Region">Region</label>
+          <select name="Region" id="Region" required>
+            <option value="" disabled selected>Select region</option>
+            <option value="0">Bejaia</option>
+            <option value="1">Sidi-Bel Abbès</option>
+          </select>
+        </div>
+
+      </div>
+
+      <hr class="divider">
+
+      <button type="submit" class="submit">Predict FWI</button>
+
+      {% if results is defined and results is not none %}
+      <div class="result">
+        <span class="label">Predicted FWI</span>
+        <span class="value">{{ results }}</span>
+      </div>
+      {% endif %}
+
+    </form>
+  </section>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FWI Predictor — Fire Weather Index</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --forest-950:#12201A;
+    --forest-800:#20342A;
+    --forest-700:#2B4436;
+    --ember-500:#E2622E;
+    --ember-300:#F0955C;
+    --ash-100:#EFE9DC;
+    --ash-50:#F7F3EA;
+    --char-700:#38352E;
+    --smoke-400:#8FA192;
+    --danger-low:#5F9E6B;
+    --danger-mod:#D6B23A;
+    --danger-high:#E2622E;
+    --danger-extreme:#B33A2A;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--forest-950);
+    font-family:'IBM Plex Mono', monospace;
+    color:var(--ash-100);
+    min-height:100vh;
+  }
+
+  a{ color:inherit; }
+
+  .embers{ position:fixed; inset:0; pointer-events:none; z-index:0; }
+  .ember{
+    position:absolute;
+    bottom:-10px;
+    width:4px;
+    height:4px;
+    border-radius:50%;
+    background:var(--ember-500);
+    opacity:0.5;
+    animation: rise linear infinite;
+  }
+  @keyframes rise{
+    0%{ transform:translateY(0) translateX(0); opacity:0.6;}
+    100%{ transform:translateY(-95vh) translateX(22px); opacity:0;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .ember{ animation:none; display:none; }
+  }
+
+  header.top{
+    position:relative;
+    z-index:1;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding: 32px 56px;
+    border-bottom:1px solid var(--forest-700);
+  }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:13px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--smoke-400);
+  }
+  .brand .flame{ color:var(--ember-500); font-size:16px; }
+  .top-link{
+    font-size:12.5px;
+    letter-spacing:0.05em;
+    text-decoration:none;
+    color:var(--ash-100);
+    border:1px solid var(--forest-700);
+    padding:9px 18px;
+    border-radius:3px;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .top-link:hover{ border-color:var(--ember-500); background:rgba(226,98,46,0.08); }
+
+  main{
+    position:relative;
+    z-index:1;
+    max-width:1180px;
+    margin:0 auto;
+    padding: 80px 56px 100px;
+  }
+
+  .hero{
+    display:grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap:60px;
+    align-items:center;
+    margin-bottom:110px;
+  }
+
+  .eyebrow{
+    font-size:12px;
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+    color:var(--ember-300);
+    margin-bottom:20px;
+  }
+
+  h1.title{
+    font-family:'Zilla Slab', serif;
+    font-weight:700;
+    font-size:64px;
+    line-height:1.03;
+    margin:0 0 22px 0;
+    color:var(--ash-50);
+  }
+  h1.title span{ color:var(--ember-500); }
+
+  .lede{
+    font-size:15.5px;
+    line-height:1.7;
+    color:var(--smoke-400);
+    max-width:46ch;
+    margin-bottom:38px;
+  }
+
+  .cta-row{ display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+
+  .cta-primary{
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:600;
+    font-size:13.5px;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+    background:var(--ember-500);
+    color:var(--ash-50);
+    border:none;
+    border-radius:3px;
+    padding:16px 26px;
+    text-decoration:none;
+    display:inline-block;
+    transition: background .15s ease, transform .1s ease;
+  }
+  .cta-primary:hover{ background:#CB5326; }
+  .cta-primary:active{ transform:translateY(1px); }
+
+  .cta-secondary{
+    font-size:12.5px;
+    color:var(--smoke-400);
+    text-decoration:none;
+    border-bottom:1px solid var(--forest-700);
+    padding-bottom:2px;
+  }
+  .cta-secondary:hover{ color:var(--ash-100); border-color:var(--ember-300); }
+
+  /* dial card */
+  .dial-card{
+    background:var(--forest-800);
+    border:1px solid var(--forest-700);
+    border-radius:6px;
+    padding:32px 30px 26px;
+  }
+  .dial-caption{
+    font-size:11px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--smoke-400);
+    margin-bottom:14px;
+  }
+  .dial{ width:100%; height:auto; }
+  .dial-legend{
+    display:flex;
+    justify-content:space-between;
+    margin-top:16px;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  .dial-legend span{
+    font-size:10.5px;
+    color:var(--smoke-400);
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .dot{width:7px;height:7px;border-radius:50%;display:inline-block;}
+
+  /* how it works */
+  .section-label{
+    font-size:11px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--ember-300);
+    margin-bottom:14px;
+  }
+  h2.section-title{
+    font-family:'Zilla Slab', serif;
+    font-size:30px;
+    font-weight:600;
+    margin:0 0 46px 0;
+    color:var(--ash-50);
+    max-width:22ch;
+  }
+
+  .steps{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap:30px;
+    margin-bottom:110px;
+  }
+  .step{
+    border-top:1px solid var(--forest-700);
+    padding-top:20px;
+  }
+  .step .num{
+    font-family:'Zilla Slab', serif;
+    font-size:22px;
+    color:var(--ember-500);
+    display:block;
+    margin-bottom:14px;
+  }
+  .step h3{
+    font-family:'Zilla Slab', serif;
+    font-size:18px;
+    font-weight:600;
+    margin:0 0 10px 0;
+    color:var(--ash-50);
+  }
+  .step p{
+    font-size:13px;
+    line-height:1.65;
+    color:var(--smoke-400);
+    margin:0;
+  }
+
+  /* inputs strip */
+  .inputs-strip{ margin-bottom:100px; }
+  .chip-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  .chip{
+    border:1px solid var(--forest-700);
+    background:var(--forest-800);
+    border-radius:20px;
+    padding:9px 16px;
+    font-size:12px;
+    color:var(--ash-100);
+    display:flex;
+    gap:8px;
+    align-items:baseline;
+  }
+  .chip .unit{ color:var(--smoke-400); font-size:10.5px; }
+
+  footer.bottom{
+    position:relative;
+    z-index:1;
+    border-top:1px solid var(--forest-700);
+    padding:30px 56px;
+    display:flex;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:12px;
+    font-size:11.5px;
+    color:var(--smoke-400);
+  }
+
+  @media (max-width: 900px){
+    header.top{ padding:24px 24px; }
+    main{ padding:56px 24px 70px; }
+    .hero{ grid-template-columns:1fr; gap:40px; }
+    h1.title{ font-size:42px; }
+    .steps{ grid-template-columns:1fr; gap:26px; }
+    footer.bottom{ padding:24px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="embers" aria-hidden="true">
+  <span class="ember" style="left:8%; animation-duration:9s; animation-delay:0s;"></span>
+  <span class="ember" style="left:22%; animation-duration:11s; animation-delay:2s;"></span>
+  <span class="ember" style="left:38%; animation-duration:8s; animation-delay:4s;"></span>
+  <span class="ember" style="left:54%; animation-duration:10s; animation-delay:1s;"></span>
+  <span class="ember" style="left:69%; animation-duration:9.5s; animation-delay:3.2s;"></span>
+  <span class="ember" style="left:83%; animation-duration:12s; animation-delay:0.6s;"></span>
+  <span class="ember" style="left:93%; animation-duration:8.5s; animation-delay:5s;"></span>
+</div>
+
+<header class="top">
+  <div class="brand"><span class="flame">▲</span> FWI Predictor</div>
+  <a class="top-link" href="/predictdata">Open form →</a>
+</header>
+
+<main>
+
+  <section class="hero">
+    <div>
+      <div class="eyebrow">Ridge Regression · Algerian Forest Fires Dataset</div>
+      <h1 class="title">Know the fire<br>risk <span>before</span><br>it spreads.</h1>
+      <p class="lede">A regression model trained on weather-station readings from Bejaia and Sidi-Bel Abbès estimates the Fire Weather Index from live conditions — temperature, humidity, wind, and fuel moisture.</p>
+      <div class="cta-row">
+        <a class="cta-primary" href="/predictdata">Run a prediction</a>
+        <a class="cta-secondary" href="#how-it-works">How it works</a>
+      </div>
+    </div>
+
+    <div class="dial-card">
+      <div class="dial-caption">FWI Danger Scale</div>
+      <svg class="dial" viewBox="0 0 320 170" xmlns="http://www.w3.org/2000/svg">
+        <path d="M 20 150 A 140 140 0 0 1 90 32" fill="none" stroke="#5F9E6B" stroke-width="14" stroke-linecap="round"/>
+        <path d="M 96 28 A 140 140 0 0 1 160 12" fill="none" stroke="#D6B23A" stroke-width="14" stroke-linecap="round"/>
+        <path d="M 166 12 A 140 140 0 0 1 230 28" fill="none" stroke="#E2622E" stroke-width="14" stroke-linecap="round"/>
+        <path d="M 236 32 A 140 140 0 0 1 300 150" fill="none" stroke="#B33A2A" stroke-width="14" stroke-linecap="round"/>
+        <line x1="160" y1="150" x2="215" y2="55" stroke="#F7F3EA" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="160" cy="150" r="6" fill="#F7F3EA"/>
+      </svg>
+      <div class="dial-legend">
+        <span><i class="dot" style="background:var(--danger-low)"></i>Low</span>
+        <span><i class="dot" style="background:var(--danger-mod)"></i>Moderate</span>
+        <span><i class="dot" style="background:var(--danger-high)"></i>High</span>
+        <span><i class="dot" style="background:var(--danger-extreme)"></i>Extreme</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="how" id="how-it-works">
+    <div class="section-label">Process</div>
+    <h2 class="section-title">Three steps from field reading to forecast</h2>
+    <div class="steps">
+      <div class="step">
+        <span class="num">01</span>
+        <h3>Enter conditions</h3>
+        <p>Temperature, relative humidity, wind speed, rainfall, and the FFMC, DMC and ISI fuel codes for the day.</p>
+      </div>
+      <div class="step">
+        <span class="num">02</span>
+        <h3>Model scales &amp; predicts</h3>
+        <p>Inputs are standardized with the fitted scaler, then passed through the trained ridge regression model.</p>
+      </div>
+      <div class="step">
+        <span class="num">03</span>
+        <h3>Read the index</h3>
+        <p>The predicted Fire Weather Index is returned instantly — higher values mean greater fire danger.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="inputs-strip">
+    <div class="section-label">Inputs the model expects</div>
+    <div class="chip-row">
+      <span class="chip">Temperature <span class="unit">°C</span></span>
+      <span class="chip">RH <span class="unit">%</span></span>
+      <span class="chip">Wind Speed <span class="unit">km/h</span></span>
+      <span class="chip">Rain <span class="unit">mm</span></span>
+      <span class="chip">FFMC <span class="unit">code</span></span>
+      <span class="chip">DMC <span class="unit">code</span></span>
+      <span class="chip">ISI <span class="unit">index</span></span>
+      <span class="chip">Classes</span>
+      <span class="chip">Region</span>
+    </div>
+  </section>
+
+</main>
+
+<footer class="bottom">
+  <span>Trained on the UCI Algerian Forest Fires dataset · Bejaia &amp; Sidi-Bel Abbès stations, 2012</span>
+  <span>Not a substitute for official fire-danger advisories</span>
+</footer>
+
+</body>
+</html>

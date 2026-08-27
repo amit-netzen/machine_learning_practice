@@ -1,0 +1,28 @@
+# render.yaml
+# Render Blueprint — defines this service so Render can build and deploy it
+# automatically from your repo. Place this file at the project root
+# (same level as application.py).
+#
+# Deploy via: https://dashboard.render.com/ -> New -> Blueprint -> connect this repo
+# Render detects this file and provisions the service below automatically.
+
+services:
+  - type: web
+    name: forest-fire-fwi-predictor
+    runtime: python
+    plan: free
+    branch: main                 # change if your default branch is named differently
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn application:application
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true      # Render generates and stores a secure random value
+      - key: AWS_REGION
+        value: us-east-1
+      - key: MODEL_DIR
+        value: models
+      - key: PYTHON_VERSION
+        value: 3.11.9
+    healthCheckPath: /
